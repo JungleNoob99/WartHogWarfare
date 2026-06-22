@@ -1,0 +1,7 @@
+function getProvinceBorderColor(supplyValue) {
+    if (supplyValue > 75) return "#00FF00"; // Green
+    if (supplyValue >= 50) return "#FFFF00"; // Yellow
+    if (supplyValue >= 26) return "#FFA500"; // Orange
+    if (supplyValue >= 6)  return "#FF0000"; // Red
+    if (supplyValue >= 1) return "#000000"; // Black (Isolated/Dead)
+}

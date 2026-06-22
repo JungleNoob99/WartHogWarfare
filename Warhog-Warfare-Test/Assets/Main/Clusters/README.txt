@@ -1,0 +1,1 @@
+For random clusters of items for units as zoomed out, Adding to it needs to follow the Item# system (Ex: Minefield1 Minefield2 and so on) and Unit Clusters to follow a Item_# system for simplicity. Just my need for structure tho!
