@@ -1,18 +1,14 @@
-// Complete list of nation tags (3-letter codes), sorted alphabetically
-
-#include <vector>
-#include <string>
-
-const std::vector<std::string> NATIONS = {
-    "AAB",          // Aroes Altbergos
+# List of all nation codes
+NATIONS = [
+    "AAB",  # Aroes Altbergos
     "ABW",
     "AFG",
     "AGO",
     "AIA",
     "ALA",
     "ALB",
-    "ALG",          // Algeria custom variant
-    "ALO",          // Algors
+    "ALG",  # Algeria custom variant
+    "ALO",  # Algors
     "AND",
     "ARE",
     "ARG",
@@ -23,16 +19,16 @@ const std::vector<std::string> NATIONS = {
     "AUS",
     "AUT",
     "AZE",
-    "BAB",          // Barbados custom variant
-    "BAH",          // Bahamas custom variant
-    "BAN",          // Bangladesh custom variant
+    "BAB",  # Barbados custom variant
+    "BAH",  # Bahamas custom variant
+    "BAN",  # Bangladesh custom variant
     "BDI",
-    "BEL",          // Belarus
+    "BEL",  # Belarus
     "BEN",
     "BES",
     "BFA",
     "BGD",
-    "BGM",          // Belgium
+    "BGM",  # Belgium
     "BGR",
     "BHR",
     "BHS",
@@ -47,7 +43,7 @@ const std::vector<std::string> NATIONS = {
     "BRB",
     "BRD",
     "BRN",
-    "BRT",          // Great Britain / United Kingdom
+    "BRT",  # Great Britain / United Kingdom
     "BTN",
     "BWA",
     "CAF",
@@ -140,7 +136,7 @@ const std::vector<std::string> NATIONS = {
     "LBR",
     "LBY",
     "LCA",
-    "LAC",          // Lacovir République
+    "LAC",  # Lacovir République
     "LIE",
     "LKA",
     "LSO",
@@ -206,7 +202,7 @@ const std::vector<std::string> NATIONS = {
     "SAU",
     "SDN",
     "SEN",
-    "SEA",       // Pirates Faction
+    "SEA",  # Pirates Faction
     "SGP",
     "SGS",
     "SHN",
@@ -261,4 +257,13 @@ const std::vector<std::string> NATIONS = {
     "ZAF",
     "ZMB",
     "ZWE"
-};
+]
+
+# Optional helper functions
+def get_nation_list() -> list[str]:
+    """Return the full list of nations."""
+    return NATIONS.copy()
+
+def is_valid_nation(code: str) -> bool:
+    """Check if a nation code exists in the list (case-sensitive)."""
+    return code in NATIONS
