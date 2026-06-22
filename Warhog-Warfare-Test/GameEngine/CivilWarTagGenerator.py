@@ -1,3 +1,7 @@
+import re
+from typing import Set
+
+
 class CivilWarTagGenerator:
     def __init__(self):
         self.next_index: int = 1
@@ -6,7 +10,6 @@ class CivilWarTagGenerator:
     def get_next_faction_tag(self) -> str:
         """Generate next civil war faction tag in format A01, B42, ..., Z99"""
         index = self.next_index
-
         while True:
             letter_code = (index - 1) // 99
             number = ((index - 1) % 99) + 1
@@ -22,7 +25,7 @@ class CivilWarTagGenerator:
                 self.next_index = index + 1
                 return tag
 
-            index += 1
+            index += 1  # Skip used tags
 
     def reset(self) -> None:
         """Reset generator to start from A01"""
@@ -33,12 +36,3 @@ class CivilWarTagGenerator:
     def is_faction_tag(tag: str) -> bool:
         """Check if string matches faction tag format (e.g. A01, Z99)"""
         return bool(re.match(r'^[A-Z][0-9]{2}$', tag))
-
-
-# Example usage:
-if __name__ == "__main__":
-    gen = CivilWarTagGenerator()
-    print(gen.get_next_faction_tag())  # A01
-    print(gen.get_next_faction_tag())  # A02
-    print(CivilWarTagGenerator.is_faction_tag("X45"))  # True
-    print(CivilWarTagGenerator.is_faction_tag("AA1"))   # False
