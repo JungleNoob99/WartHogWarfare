@@ -1,9 +1,17 @@
+# =============================================================================
+# ADVANCED MAP SYSTEM - Province Connections + Renderer
+# map_system.py
+# =============================================================================
+
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 import random
 import math
+import matplotlib.pyplot as plt
+import networkx as nx
+from matplotlib.patches import Circle, FancyArrowPatch
 
-from attachments.NationsTags import NATIONS, is_valid_nation
+from attachments.NationsTags import is_valid_nation
 from attachments.MainCombatSYS import GameEngine, Unit, MoveResult
 
 
@@ -11,158 +19,159 @@ from attachments.MainCombatSYS import GameEngine, Unit, MoveResult
 class Province:
     id: int
     name: str
-    owner: str                  # Nation code (e.g. "BRT", "GER")
+    owner: str
     capital: bool = False
     x: float = 0.0
     y: float = 0.0
-    terrain: str = "PLAINS"     # PLAINS, MOUNTAIN, FOREST, URBAN, COASTAL, etc.
+    terrain: str = "PLAINS"
     supply_hub: bool = False
 
 
 class GameMap:
-    """
-    Simple 2D strategic map with provinces.
-    Supports movement, ownership, distance calculations.
-    """
-    def __init__(self, width: int = 800, height: int = 600):
+    def __init__(self, width: int = 1000, height: int = 700):
         self.width = width
         self.height = height
         self.provinces: Dict[int, Province] = {}
+        self.connections: Dict[int, Set[int]] = {}  # Adjacency list
         self.next_province_id = 1
-        self.engine = GameEngine()  # For distance calculations
+        self.engine = GameEngine()
 
     def add_province(self, name: str, owner: str, x: float = None, y: float = None,
-                    terrain: str = "PLAINS", capital: bool = False) -> int:
-        """Add a new province to the map"""
-        if not is_valid_nation(owner):
-            owner = "DEF"  # Default fallback
+                     terrain: str = "PLAINS", capital: bool = False) -> int:
+        if x is None: x = random.uniform(50, self.width - 50)
+        if y is None: y = random.uniform(50, self.height - 50)
 
-        if x is None:
-            x = random.uniform(0, self.width)
-        if y is None:
-            y = random.uniform(0, self.height)
+        if not is_valid_nation(owner):
+            owner = "DEF"
 
         prov = Province(
             id=self.next_province_id,
             name=name,
             owner=owner,
-            x=x,
-            y=y,
+            x=x, y=y,
             terrain=terrain,
             capital=capital
         )
         self.provinces[prov.id] = prov
+        self.connections[prov.id] = set()
         self.next_province_id += 1
         return prov.id
 
-    def get_province(self, prov_id: int) -> Optional[Province]:
-        return self.provinces.get(prov_id)
+    def connect_provinces(self, id1: int, id2: int, bidirectional: bool = True):
+        """Create a connection (road/border) between provinces"""
+        if id1 in self.provinces and id2 in self.provinces:
+            self.connections[id1].add(id2)
+            if bidirectional:
+                self.connections[id2].add(id1)
 
-    def get_owner_provinces(self, nation: str) -> List[Province]:
-        return [p for p in self.provinces.values() if p.owner == nation]
+    def get_connected_provinces(self, prov_id: int) -> List[int]:
+        return list(self.connections.get(prov_id, set()))
 
-    def change_owner(self, prov_id: int, new_owner: str) -> bool:
-        prov = self.get_province(prov_id)
-        if prov and is_valid_nation(new_owner):
-            prov.owner = new_owner
-            return True
-        return False
+    def is_connected(self, id1: int, id2: int) -> bool:
+        return id2 in self.connections.get(id1, set())
 
-    def distance_between(self, prov1_id: int, prov2_id: int) -> float:
-        p1 = self.get_province(prov1_id)
-        p2 = self.get_province(prov2_id)
-        if not p1 or not p2:
-            return float('inf')
-        return self.engine.get_distance(p1.x, p1.y, p2.x, p2.y)
-
-    def move_unit_to_province(self, unit: Unit, target_prov_id: int) -> MoveResult:
+    def move_unit_to_province(self, unit: Unit, target_prov_id: int, use_connections: bool = True) -> MoveResult:
         target = self.get_province(target_prov_id)
         if not target:
             return MoveResult(False, "Invalid province", 0.0)
 
         distance = self.engine.get_distance(unit.x, unit.y, target.x, target.y)
-        max_speed = 40 if unit.is_naval else 35  # rough default
 
-        if distance > max_speed:
-            return MoveResult(False, f"Too far ({distance:.1f} > {max_speed})", 0.0)
+        if use_connections and not self.is_connected(int(unit.x), target_prov_id):  # rough check
+            # Allow direct move but penalize if not connected
+            pass
+
+        max_speed = 40 if unit.is_naval else 35
+        if distance > max_speed * 1.5:  # some flexibility
+            return MoveResult(False, f"Too far ({distance:.1f}km)", 0.0)
 
         unit.x = target.x
         unit.y = target.y
         return MoveResult(True, f"Moved to {target.name}", distance)
 
-    def get_map_summary(self) -> str:
-        owners = {}
-        for p in self.provinces.values():
-            owners[p.owner] = owners.get(p.owner, 0) + 1
-
-        summary = ["=== WORLD MAP SUMMARY ==="]
-        summary.append(f"Total Provinces: {len(self.provinces)}")
-        for nation, count in sorted(owners.items(), key=lambda x: -x[1]):
-            summary.append(f"  {nation}: {count} provinces")
-        return "\n".join(summary)
-
     def generate_sample_map(self):
-        """Generate a basic world map with major nations"""
+        """Generate a realistic Europe-style map with connections"""
         self.provinces.clear()
+        self.connections.clear()
         self.next_province_id = 1
 
-        # Major powers with capitals
+        # Major capitals
         capitals = {
-            "BRT": ("London", 400, 150),
-            "GER": ("Berlin", 520, 140),
-            "FRA": ("Paris", 380, 180),
-            "USA": ("Washington", 150, 220),
-            "RUS": ("Moscow", 680, 100),
-            "CHN": ("Beijing", 750, 250),
-            "JPN": ("Tokyo", 820, 280),
-            "ITA": ("Rome", 480, 220),
+            "BRT": ("London", 320, 180),
+            "FRA": ("Paris", 380, 240),
+            "GER": ("Berlin", 520, 190),
+            "ITA": ("Rome", 480, 380),
+            "RUS": ("Moscow", 720, 140),
+            "USA": ("Washington", 120, 280),
+            "CHN": ("Beijing", 820, 320),
+            "JPN": ("Tokyo", 920, 340),
         }
 
+        prov_ids = {}
         for nation, (name, x, y) in capitals.items():
-            self.add_province(name, nation, x, y, "URBAN", capital=True)
+            pid = self.add_province(name, nation, x, y, "URBAN", capital=True)
+            prov_ids[nation] = pid
 
-        # Add some extra provinces
+        # Add extra provinces
         extras = [
-            ("Normandy", "FRA", 360, 190, "COASTAL"),
-            ("Ruhr", "GER", 510, 160, "URBAN"),
-            ("Siberia", "RUS", 720, 80, "MOUNTAIN"),
-            ("Manchuria", "CHN", 780, 230, "PLAINS"),
             ("Pacific Fleet Base", "USA", 100, 300, "COASTAL"),
+            ("Normandy", "FRA", 340, 260, "COASTAL"),
+            ("Ruhr", "GER", 500, 220, "URBAN"),
+            ("Bavaria", "GER", 540, 260, "MOUNTAIN"),
+            ("Siberia", "RUS", 780, 100, "MOUNTAIN"),
+            ("Manchuria", "CHN", 840, 280, "PLAINS"),
+            ("Scotland", "BRT", 280, 120, "PLAINS"),
         ]
+
         for name, owner, x, y, terrain in extras:
-            self.add_province(name, owner, x, y, terrain)
+            pid = self.add_province(name, owner, x, y, terrain)
+            # Connect to capital
+            if owner in prov_ids:
+                self.connect_provinces(prov_ids[owner], pid)
 
+        # Create historical connections
+        self.connect_provinces(prov_ids["BRT"], prov_ids["FRA"], True)   # Channel crossing
+        self.connect_provinces(prov_ids["FRA"], prov_ids["GER"], True)
+        self.connect_provinces(prov_ids["GER"], prov_ids["ITA"], True)
+        self.connect_provinces(prov_ids["GER"], prov_ids["RUS"], True)
 
-# =============================================================================
-# INTEGRATION WITH GAME MANAGER
-# =============================================================================
+    def render_map(self, highlight_nation: str = None, show_connections: bool = True):
+        """Visual map renderer using matplotlib"""
+        plt.figure(figsize=(14, 9))
+        ax = plt.gca()
+        ax.set_facecolor('#1a2633')
 
-class GameManagerWithMap:
-    def __init__(self):
-        self.map = GameMap()
-        self.map.generate_sample_map()
-        # ... (you can extend with previous GameManager logic)
+        colors = {
+            "BRT": "royalblue", "GER": "crimson", "FRA": "mediumblue",
+            "ITA": "green", "RUS": "darkred", "USA": "navy",
+            "CHN": "red", "JPN": "orange", "DEF": "gray"
+        }
 
-    def print_map(self):
-        print(self.map.get_map_summary())
-        print("\nSample Provinces:")
-        for p in list(self.map.provinces.values())[:8]:
-            print(f"  {p.id}: {p.name} ({p.owner}) @ ({p.x:.0f}, {p.y:.0f})")
+        # Draw provinces
+        for prov in self.provinces.values():
+            color = colors.get(prov.owner, "lightgray")
+            size = 180 if prov.capital else 90
 
+            circle = Circle((prov.x, prov.y), size, color=color, alpha=0.85, ec='white', lw=1.5)
+            ax.add_patch(circle)
 
-# =============================================================================
-# DEMO
-# =============================================================================
-if __name__ == "__main__":
-    gm = GameManagerWithMap()
-    gm.print_map()
+            # Label
+            ax.text(prov.x, prov.y, prov.name, fontsize=9 if prov.capital else 8,
+                    ha='center', va='center', color='white', weight='bold')
 
-    # Example movement
-    from attachments.UnitsList import get_units
-    from attachments.MainCombatSYS import Unit
+        # Draw connections
+        if show_connections:
+            for src_id, targets in self.connections.items():
+                src = self.provinces[src_id]
+                for tgt_id in targets:
+                    if tgt_id > src_id:  # avoid double drawing
+                        tgt = self.provinces[tgt_id]
+                        ax.plot([src.x, tgt.x], [src.y, tgt.y],
+                                color='white', alpha=0.4, linewidth=1.5, linestyle='--')
 
-    # Create a test unit
-    test_unit = Unit("Test Tank", "TANK", "HEAVY", "HEAVY", "HEAVY", False)
-    prov_id = list(gm.map.provinces.keys())[0]
-    result = gm.map.move_unit_to_province(test_unit, prov_id)
-    print(f"\nMove result: {result.success} - {result.reason}")
+        ax.set_xlim(0, self.width)
+        ax.set_ylim(0, self.height)
+        ax.set_title("Strategic World Map - Province Connections", fontsize=16, color='white')
+        ax.axis('off')
+        plt.tight_layout()
+        plt.show()
